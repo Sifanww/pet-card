@@ -72,7 +72,7 @@ app.post('/api/image-to-image', async (req, res) => {
   }
 });
 
-// Hunyuan Image-to-Image endpoint
+// Hunyuan ReplaceBackground endpoint
 app.post('/api/hunyuan-image', async (req, res) => {
   try {
     const { image } = req.body;
@@ -81,20 +81,26 @@ app.post('/api/hunyuan-image', async (req, res) => {
     }
 
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+
+    // Upload to fal storage to get a public URL (ReplaceBackground requires URL)
+    const buffer = Buffer.from(base64Data, 'base64');
+    const file = new File([buffer], 'pet.png', { type: 'image/png' });
+    const imageUrl = await fal.storage.upload(file);
+    console.log('Hunyuan: uploaded image URL:', imageUrl);
+
     const client = getTencentClient();
 
     const params = {
-      InputImage: base64Data,
-      Prompt: '专业高质量宠物证件照，牛仔蓝背景，专业摄影棚灯光，高分辨率，清晰锐利细节。宠物面对镜头，自然坐姿或站姿，头部胸部清晰可见，面部特征精致，表情可爱，构图居中对称。',
-      Styles: ['201'],
-      ResultConfig: { Resolution: '768:1024' },
-      Strength: 0.6,
+      ProductUrl: imageUrl,
+      Prompt: '纯色牛仔蓝背景，干净简洁，专业证件照背景',
+      Product: '宠物',
+      Resolution: '768:1024',
       RspImgType: 'base64',
       LogoAdd: 0,
     };
 
-    const result = await client.ImageToImage(params);
-    console.log('Hunyuan result RequestId:', result.RequestId);
+    const result = await client.ReplaceBackground(params);
+    console.log('Hunyuan ReplaceBackground RequestId:', result.RequestId);
 
     if (!result.ResultImage) {
       return res.status(500).json({ error: 'No image returned from Hunyuan' });
