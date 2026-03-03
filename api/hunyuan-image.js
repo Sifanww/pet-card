@@ -1,7 +1,4 @@
-import { fal } from '@fal-ai/client';
 import tencentcloud from 'tencentcloud-sdk-nodejs';
-
-fal.config({ credentials: process.env.FAL_KEY });
 
 const AiartClient = tencentcloud.aiart.v20221229.Client;
 
@@ -30,14 +27,11 @@ export default async function handler(req, res) {
     }
 
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    const file = new File([buffer], 'pet.png', { type: 'image/png' });
-    const imageUrl = await fal.storage.upload(file);
 
     const client = getTencentClient();
 
     const params = {
-      ProductUrl: imageUrl,
+      ProductImage: base64Data,
       Prompt: '纯色牛仔蓝背景，干净简洁，专业证件照背景',
       Product: '宠物',
       Resolution: '768:1024',
