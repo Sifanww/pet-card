@@ -158,6 +158,26 @@ function App() {
     reader.readAsDataURL(file);
   };
 
+  const compressImage = (dataUrl: string, maxWidth = 1024): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = dataUrl;
+    });
+  };
+
   const handleGenerate = async () => {
     if (!uploadedImage) return;
     setCardImage(null);
@@ -171,16 +191,27 @@ function App() {
 
     setLoading(true);
     try {
+      const compressed = await compressImage(uploadedImage);
       const endpoint = aiProvider === 'hunyuan' ? '/api/hunyuan-image' : '/api/image-to-image';
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: uploadedImage }),
+        body: JSON.stringify({ image: compressed }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(
+          text.length === 0
+            ? '服务器返回了空响应，可能是函数超时或未部署。请检查 Vercel 日志。'
+            : '服务器返回了非 JSON 响应: ' + text.slice(0, 200)
+        );
+      }
 
       if (!res.ok || !data.image) {
-        throw new Error(data.error || 'AI processing failed');
+        throw new Error(data.error || 'AI 处理失败，状态码: ' + res.status);
       }
 
       const processedUrl = 'data:image/png;base64,' + data.image;

@@ -16,6 +16,14 @@ function getTencentClient() {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -26,20 +34,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No image provided' });
     }
 
-    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+    if (!process.env.TENCENT_SECRET_ID || !process.env.TENCENT_SECRET_KEY) {
+      return res.status(500).json({ error: 'Tencent credentials not configured on server' });
+    }
 
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
     const client = getTencentClient();
 
     const params = {
-      ProductImage: base64Data,
-      Prompt: '纯色牛仔蓝背景，干净简洁，专业证件照背景',
-      Product: '宠物',
-      Resolution: '768:1024',
-      RspImgType: 'base64',
+      InputImage: base64Data,
+      Prompt: '专业宠物证件照，纯色牛仔蓝背景，干净简洁，专业证件照背景，专业摄影棚灯光，高清，细节清晰锐利',
+      NegativePrompt: '模糊，低质量，变形，多余肢体',
+      Styles: ['000'],
+      ResultConfig: {
+        Resolution: '768:1024',
+      },
       LogoAdd: 0,
     };
 
-    const result = await client.ReplaceBackground(params);
+    const result = await client.ImageToImage(params);
 
     if (!result.ResultImage) {
       return res.status(500).json({ error: 'No image returned from Hunyuan' });
